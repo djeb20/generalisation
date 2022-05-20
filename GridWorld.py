@@ -23,7 +23,7 @@ from matplotlib import colors
 
 class GridEnv:
     
-    def __init__(self, H, W):
+    def __init__(self, H, W, num_hidden=5):
         """
         The number in the grid representes what it contains:
         
@@ -56,22 +56,30 @@ class GridEnv:
         
         self.action_dim = len(self.action_dict)
         self.state_dim = 2
+
+        # Every possible goal
+        goals = [[i, j] for i in range(1, self.H - 1) for j in range(1, self.W -  1)]
+        index = np.random.choice(np.arrange(len(goals)), len(goals), replace=False)
+
+        # These are the goals that we restrict and ones we don't
+        self.hidden_goals = np.array(goals[index[:num_hidden]])
+        self.visible_goals = np.array(goals[index[num_hidden:]])
+        self.goals_len = len(goals)
+        self.vis_len = self.goals_len - num_hidden   
                 
     def reset(self):
         """
         Resets the enviroment, usually called after an episode terminates.
         """
 
-        self.goal = [np.random.randint(1, self.H - 1), np.random.randint(1, self.W - 1)]
+        self.goal = self.visible_goals[np.random.randint(self.vis_len)]
 
         while True:
 
-            pos = np.array([np.random.randint(1, self.H - 1), np.random.randint(1, self.W - 1)])
+            self.pos = self.goals[np.random.randint(self.goals_len)]
 
-            if (pos != self.goal).all(): break
-        
-        self.pos = pos
-        
+            if (self.pos != self.goal).all(): break
+                
         return self.pos
         
     def step(self, action):
