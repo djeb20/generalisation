@@ -4,7 +4,9 @@ import sys
 from DQN import DQN
 from tqdm import tqdm
 
-env = GridEnv(7, 7)
+# TRAIN THE RL AGENT FIRST
+
+env = GridEnv(10, 10)
 agent = DQN(env.state_dim, 
             env.action_dim,
             critic_arch=[40, 30], 
@@ -15,7 +17,7 @@ agent = DQN(env.state_dim,
             step_size=1e-4,
             tau=0.001)
 
-num_episodes = 1000000
+num_episodes = 10000
 
 returns = []
 
@@ -26,7 +28,7 @@ for ep in tqdm(range(num_episodes)):
 
     while True:
 
-        if ep < 100:
+        if ep < 50:
             # At first only explore.
 
             action = np.random.randint(env.action_dim)
@@ -49,4 +51,12 @@ for ep in tqdm(range(num_episodes)):
 
         if done: break
 
+    if ret != env.H - np.abs(env.init - env.goal).sum():
+
+        print('Best Return/Return: {}/{}'.format(ret, env.H - np.abs(env.init - env.goal).sum()))
+
     returns.append(ret)
+
+# DISTILL INTO NEW NETWORK USING SUPERVISED LEARNING
+
+

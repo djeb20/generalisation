@@ -70,13 +70,14 @@ class GridEnv:
         """
 
         self.goal = self.visible_goals[np.random.randint(self.vis_len)]
-        # self.goal = self.visible_goals[0]
 
         while True:
 
-            self.pos = self.goals[np.random.randint(self.goals_len)]
+            self.init = self.goals[np.random.randint(self.goals_len)]
 
-            if (self.pos != self.goal).all(): break
+            if (self.init != self.goal).all(): break
+
+        self.pos = self.init.copy()
 
         self.env = np.copy(self.env_mask)
         self.env[self.goal[0], self.goal[1]] = 2
@@ -110,7 +111,7 @@ class GridEnv:
         elif self.env[new_pos[0], new_pos[1]] == 2:
             # Found goal
             true_pos = self.pos
-            reward += 15
+            reward += self.H
             done = True
                     
         # Set new position
