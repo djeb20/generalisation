@@ -17,15 +17,11 @@ Reward of +1 is given for reaching goal state.
 """
 
 import numpy as np
-from matplotlib import colors as mcolors
 import matplotlib.pyplot as plt
 from IPython.display import clear_output
 from matplotlib import colors
-import matplotlib as mpl
-from numpy.random import shuffle
-from random import randrange
 
-class BlankGridEnv:
+class GridEnv:
     
     def __init__(self, H, W):
         """
@@ -33,13 +29,7 @@ class BlankGridEnv:
         
         0 is an empty space
         1 is a wall
-        NO GOAL
         """
-        
-        if H % 2 == 0:
-            H += 1
-        if W % 2 == 0:
-            W += 1
             
         # Height and width of the maze.
         self.H = H
@@ -66,17 +56,23 @@ class BlankGridEnv:
         
         self.action_dim = len(self.action_dict)
         self.state_dim = 2
-        
-        self.init = np.array([self.H // 2, self.W // 2])
-        
+                
     def reset(self):
         """
         Resets the enviroment, usually called after an episode terminates.
         """
+
+        self.goal = [np.random.randint(1, self.H - 1), np.random.randint(1, self.W - 1)]
+
+        while True:
+
+            pos = np.array([np.random.randint(1, self.H - 1), np.random.randint(1, self.W - 1)])
+
+            if (pos != self.goal).all(): break
         
-        self.pos = self.init
+        self.pos = pos
         
-        return self.get_obs()
+        return self.pos
         
     def step(self, action):
         """
@@ -105,14 +101,7 @@ class BlankGridEnv:
         # Set new position
         self.pos = true_pos
         
-        return self.get_obs(), reward, done, False
-    
-    def get_obs(self):
-        """
-        This returns an agents current observation of the environment.
-        """
-        
-        return self.pos       
+        return self.pos, reward, done, False     
         
     def render(self, name=''):
         """ 
@@ -128,6 +117,7 @@ class BlankGridEnv:
 
         # Prepare the environment
         env_plot = np.copy(self.env_mask).astype(int)
+        env_plot[self.goal[0], self.goal[1]] = 2
         
         colours = ['w', 'grey', 'peru']
         
@@ -142,9 +132,9 @@ class BlankGridEnv:
         
         # Set up axes.
         ax.grid(which = 'major', axis = 'both', linestyle = '-', color = 'grey', linewidth = 2, zorder = 1)
-        ax.set_xticks(np.arange(-0.5, self.env_mask.shape[1] , 1));
+        ax.set_xticks(np.arange(-0.5, self.env_mask.shape[1] , 1))
         ax.set_xticklabels([])
-        ax.set_yticks(np.arange(-0.5, self.env_mask.shape[0], 1));
+        ax.set_yticks(np.arange(-0.5, self.env_mask.shape[0], 1))
         ax.set_yticklabels([])
         
 #         plt.legend(bbox_to_anchor=(1.15, 1), fontsize=30)
