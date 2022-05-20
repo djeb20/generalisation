@@ -38,6 +38,7 @@ class DQN:
         self.buffer_size = buffer_size
         self.batch_size = batch_size
         self.tau = tau
+        self.step_size = step_size
         
         self.action_dim = action_dim
         
