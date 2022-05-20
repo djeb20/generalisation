@@ -42,29 +42,26 @@ class GridEnv:
                             3 : np.array([0, -1])}
         
         # Create grid
-        self.env = np.zeros((self.H, self.W))
+        self.env_mask = np.zeros((self.H, self.W))
         
         # Fill in a boarder - code is simpler this way
-        for i in range(self.env.shape[0]):
-            for j in range(self.env.shape[1]):
+        for i in range(self.env_mask.shape[0]):
+            for j in range(self.env_mask.shape[1]):
                 
                 if (i % (self.H - 1) == 0) or (j % (self.W - 1) == 0):
-                    self.env[i][j] = 1
-        
-        # For rendering
-        self.env_mask = np.copy(self.env)
+                    self.env_mask[i][j] = 1
         
         self.action_dim = len(self.action_dict)
-        self.state_dim = 2
+        self.state_dim = 4
 
         # Every possible goal
-        goals = [[i, j] for i in range(1, self.H - 1) for j in range(1, self.W -  1)]
-        index = np.random.choice(np.arrange(len(goals)), len(goals), replace=False)
+        self.goals = np.array([[i, j] for i in range(1, self.H - 1) for j in range(1, self.W -  1)])
+        index = np.random.choice(np.arange(len(self.goals)), len(self.goals), replace=False)
 
         # These are the goals that we restrict and ones we don't
-        self.hidden_goals = np.array(goals[index[:num_hidden]])
-        self.visible_goals = np.array(goals[index[num_hidden:]])
-        self.goals_len = len(goals)
+        self.hidden_goals = self.goals[index[:num_hidden]]
+        self.visible_goals = self.goals[index[num_hidden:]]
+        self.goals_len = len(self.goals)
         self.vis_len = self.goals_len - num_hidden   
                 
     def reset(self):
@@ -73,14 +70,18 @@ class GridEnv:
         """
 
         self.goal = self.visible_goals[np.random.randint(self.vis_len)]
+        # self.goal = self.visible_goals[0]
 
         while True:
 
             self.pos = self.goals[np.random.randint(self.goals_len)]
 
             if (self.pos != self.goal).all(): break
+
+        self.env = np.copy(self.env_mask)
+        self.env[self.goal[0], self.goal[1]] = 2
                 
-        return self.pos
+        return np.append(self.pos, self.goal)
         
     def step(self, action):
         """
@@ -92,8 +93,8 @@ class GridEnv:
         new_pos = self.pos + action_v
         
         # No reward unless goal found
-#         reward = -.02
-        reward = 0
+        reward = -1
+        # reward = 0
         
         # Assume episode has not ended
         done = False
@@ -105,11 +106,17 @@ class GridEnv:
         elif self.env[new_pos[0], new_pos[1]] == 1:
             # Hits a wall
             true_pos = self.pos
+
+        elif self.env[new_pos[0], new_pos[1]] == 2:
+            # Found goal
+            true_pos = self.pos
+            reward += 15
+            done = True
                     
         # Set new position
         self.pos = true_pos
         
-        return self.pos, reward, done, False     
+        return np.append(self.pos, self.goal), reward, done, False     
         
     def render(self, name=''):
         """ 
@@ -124,8 +131,7 @@ class GridEnv:
         clear_output(wait = True)
 
         # Prepare the environment
-        env_plot = np.copy(self.env_mask).astype(int)
-        env_plot[self.goal[0], self.goal[1]] = 2
+        env_plot = np.copy(self.env).astype(int)
         
         colours = ['w', 'grey', 'peru']
         

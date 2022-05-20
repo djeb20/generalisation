@@ -1,11 +1,10 @@
 from GridWorld import GridEnv
 import numpy as np
 import sys
-sys.path.append(r'/mnt/seaweed/homes/djeb20/Research/Agents')
-# sys.path.append(r'C:/Users/Dan/OneDrive/Documents/PhD/Year 1/Research\Agents')
-import DQN
+from DQN import DQN
+from tqdm import tqdm
 
-env = GridEnv(20, 20)
+env = GridEnv(7, 7)
 agent = DQN(env.state_dim, 
             env.action_dim,
             critic_arch=[40, 30], 
@@ -20,20 +19,31 @@ num_episodes = 1000000
 
 returns = []
 
-for ep in range(num_episodes):
+for ep in tqdm(range(num_episodes)):
 
     state = env.reset()
     ret = 0
 
     while True:
 
-        action = agent.choose_action(state)
+        if ep < 100:
+            # At first only explore.
+
+            action = np.random.randint(env.action_dim)
+
+        else:
+
+            action = agent.choose_action(state)
+
         new_state, reward, done, _ = env.step(action)
 
         agent.store((state, action, reward, new_state, 1 - done))
+
         batch = agent.get_batch()
-        agent.update_critic(batch)
+        agent.update_critic(*batch)
         agent.update_target()
+
+        state = new_state
 
         ret += reward
 
