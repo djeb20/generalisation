@@ -1,39 +1,28 @@
 import tensorflow as tf
 import numpy as np
-import keras
-from keras.layers import Dense
-from keras.layers import Input
+from tqdm import tqdm
 
 class Sup_Agent:
 
-    def __init__(self, state_dim, action_dim, critic_arch=[40, 30], 
-    buffer_size=int(1e6), batch_size=64, gamma=0.99, 
-    step_size=1e-4):
+    def __init__(self, state_dim, action_dim, batch_size=64, step_size=1e-4):
 
         self.state_dim = state_dim
         self.action_dim = action_dim
-        self.buffer_size = buffer_size
         self.batch_size = batch_size
         self.step_size = step_size
 
         self.epochs = 10000
         self.val_split = 0.8
-        # CHECK SPLIT IS RIGHT
-        self.split_ind = int(self.val_split * self.buffer_size)
-        self.num_batches = (self.split_ind // self.batch_size) + 1
 
         # Used for validation checks
         self.best = 1e6
         # THIS SHOULD BE HIGHER
         self.patience = 25
 
-        self.create_buffer()
-        self.critic = self.make_critic()
-
         # Step the optimiser used and its stepsize.
         self.optimizer_critic = tf.keras.optimizers.Adam(step_size)
 
-    def create_buffer(self):
+    def create_buffer(self, state_buffer, action_buffer, value_buffer):
         """
         Creates a new memory based on the number of transitions being recorded
         """
@@ -43,9 +32,15 @@ class Sup_Agent:
         
         # Initiate empty buffer
         # Actions are always single number in a discrete setting?
-        self.buffer = {'obs': np.empty((self.buffer_size, self.state_dim)),
-                       'action': np.empty((self.buffer_size, )),
-                       'value': np.empty((self.buffer_size, ))}
+        self.buffer = {'obs': np.array(state_buffer), 
+                       'action': np.array(action_buffer), 
+                       'value': np.array(value_buffer)}
+
+        self.buffer_size = len(state_buffer)
+
+        # CHECK SPLIT IS RIGHT
+        self.split_ind = int(self.val_split * self.buffer_size)
+        self.num_batches = (self.split_ind // self.batch_size) + 1
 
     @tf.function
     def update_critic(self, batch):
@@ -74,23 +69,20 @@ class Sup_Agent:
         gradient = g.gradient(loss, self.critic.trainable_variables)
         self.optimizer_critic.apply_gradients(zip(gradient, self.critic.trainable_variables))
 
-    def get_batch(self, b):
+    def get_batch(self):
         """
         Selects a batch from the buffer.
         Using a selected trajectory.
         """
             
         # Index of the randomly chosen transitions   
-        index = np.arange(self.split_ind)[b * self.batch_size:(b+1) * self.batch_size]     
+        # index = np.arange(self.split_ind)[b * self.batch_size:(b+1) * self.batch_size]  
+        index = np.random.choice(np.arange(self.split_ind), self.batch_size)   
 
         # We have a different index for values as we need the next one too.
         batch = [self.buffer['obs'][index], 
-                 self.buffer['action'][index]]
-
-        batch.append(self.Q_table_arr[batch[0][:, 0],
-        batch[0][:, 1],
-        batch[0][:, 2],
-        batch[0][:, 3]])
+                 self.buffer['action'][index],
+                 self.buffer['value'][index]]
         
         # Make tensors for speed.
         t_trajectory = [tf.convert_to_tensor(item) for item in batch]
@@ -100,21 +92,15 @@ class Sup_Agent:
         return t_trajectory
 
     # @tf.function
-    def learn(self):
+    def train(self):
         """
         Trains the critic using supervised learning.
         """
 
-        self.Q_table_arr = np.zeros((10, 10, 10, 10, self.action_dim))
-        for s, v in self.Q_table.items():
-            self.Q_table_arr[s[0], s[1], s[2], s[3]] = v
+        for _ in tqdm(range(self.epochs)):
+            for _ in range(self.num_batches):
 
-        for _ in range(self.epochs):
-            if _ % 100 == 0:
-                print('{}/{}'.format(int(_ / 100 + 1), int(self.epochs / 100)))
-            for b in range(self.num_batches):
-
-                batch = self.get_batch(b)
+                batch = self.get_batch()
                 self.update_critic(batch)
 
             if self.check_val():
@@ -129,13 +115,9 @@ class Sup_Agent:
 
         # We have a different index for values as we need the next one too.
         batch = [self.buffer['obs'][self.split_ind:], 
-                 self.buffer['action'][self.split_ind:]]
+                 self.buffer['action'][self.split_ind:],
+                 self.buffer['value'][self.split_ind:]]
 
-        batch.append(self.Q_table_arr[batch[0][:, 0],
-        batch[0][:, 1],
-        batch[0][:, 2],
-        batch[0][:, 3]])
-        
         # Make tensors for speed.
         batch = [tf.convert_to_tensor(item) for item in batch]
         batch[1] = tf.cast(batch[1], dtype=tf.int32)
@@ -154,6 +136,8 @@ class Sup_Agent:
         loss = tf.math.reduce_mean(tf.math.square(Q_values_actions - targets_actions))
 
         if loss < self.best:
+
+            print(float(loss))
 
             self.curr = 0
             self.best_weights = self.critic.get_weights()
