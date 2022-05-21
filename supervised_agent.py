@@ -105,8 +105,8 @@ class Sup_Agent:
 
             for b in range(self.num_batches):
 
-                batch = self.get_batch()
-                self.update_critic(batch, shuffled_indexes, b)
+                batch = self.get_batch(shuffled_indexes, b)
+                self.update_critic(batch)
 
             if self.check_val():
                 break

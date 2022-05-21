@@ -23,6 +23,7 @@ num_episodes = 10000
 explore = 100
 
 returns = []
+errors = []
 
 for ep in tqdm(range(num_episodes)):
 
@@ -59,12 +60,13 @@ for ep in tqdm(range(num_episodes)):
     #     print('Best Return/Return: {}/{}'.format(ret, env.H - np.abs(env.init - env.goal).sum()))
 
     returns.append(ret)
+    errors.append((env.H - np.abs(env.init - env.goal).sum()) - ret)
 
-plt.plot(returns)
+plt.plot(errors)
 plt.xlabel('Episode')
-plt.ylabel('Episode Return')
-plt.title('DQN agent learning curve')
-plt.savefig('returns_plot.svg')
+plt.ylabel('Difference in return')
+plt.title('Difference in return from optimum for DQN agent')
+plt.savefig('errors_plot.svg')
 
 # DISTILL INTO NEW NETWORK USING SUPERVISED LEARNING
 
