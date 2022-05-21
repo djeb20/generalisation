@@ -8,7 +8,7 @@ from supervised_agent import Sup_Agent
 
 # TRAIN THE RL AGENT FIRST
 
-env = GridEnv(10, 10)
+env = GridEnv(8, 8, num_hidden=5)
 agent = DQN(env.state_dim, 
             env.action_dim,
             critic_arch=[40, 30], 
@@ -19,8 +19,8 @@ agent = DQN(env.state_dim,
             step_size=1e-4,
             tau=0.001)
 
-num_episodes = 100
-explore = 50
+num_episodes = 1000
+explore = 100
 
 returns = []
 
@@ -62,37 +62,8 @@ for ep in tqdm(range(num_episodes)):
 
 # DISTILL INTO NEW NETWORK USING SUPERVISED LEARNING
 
-# # DOES THIS WORK?
-# # Do I bother with the monitoring the validation set?
+# Do I bother with the monitoring the validation set?
 
-# critic = agent.make_critic(env.state_dim, env.action_dim, critic_arch=[40, 30])
-
-# # Going to have an early stopping function
-# callback = tf.keras.callbacks.EarlyStopping(
-#     # monitor="val_loss",
-#     monitor="loss",
-#     patience=20,
-#     verbose=1,
-#     mode="auto",
-#     restore_best_weights=True,
-# )
-
-# critic.compile(loss='mse', optimizer=tf.keras.optimizers.Adam(learning_rate=agent.step_size))
-
-# # Train the neural network
-# train_data = np.array([np.append(s, g) for s in env.goals for g in env.visible_goals])
-# targets = agent.critic(train_data).numpy()
-
-# critic.fit(train_data, 
-#         targets, 
-#         epochs=10000, 
-#         batch_size=agent.batch_size, 
-#         # validation_split=0.2, 
-#         callbacks=[callback], 
-#         verbose=1)
-
-# print(targets)
-# print(critic(train_data).numpy())
 
 state_buffer = []
 action_buffer = []
@@ -120,4 +91,49 @@ print(sup_agent.critic(all_states).numpy())
 
 # TEST EPISODES
 
-state = env.reset()
+# Try each new goal
+for goal in env.hidden_goals:
+
+    # Try a bunch of start states
+    for _ in range(5):
+
+        state = env.reset_test(goal)
+        start = state.copy()
+
+        ret_DQN = 0
+
+        # Play DQN agent
+        while True:
+
+            action = agent.choose_action(state, exp=False)
+            new_state, reward, done, _ = env.step(action)
+            ret_DQN += reward
+
+            if done: break
+
+        # Play Supervised agent
+        state = env.reset_test(goal, start[2:])
+        ret_sup = 0
+
+        while True:
+
+            action = sup_agent.choose_action(state)
+            new_state, reward, done, _ = env.step(action)
+            ret_sup += reward
+
+            if done: break
+        
+        if ret_sup > ret_DQN:
+
+            print('Supervised agent did better')
+
+        elif ret_sup == ret_DQN:
+
+            print('There was no difference')
+
+        else:
+
+            print('DQN agebt did better')
+
+        print()
+

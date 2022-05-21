@@ -83,6 +83,32 @@ class GridEnv:
         self.env[self.goal[0], self.goal[1]] = 2
                 
         return np.append(self.pos, self.goal)
+
+    def reset_test(self, goal, state=[]):
+        """
+        Resets the environment for the testing part.
+        """
+
+        self.goal = goal
+
+        if state == []:
+
+            while True:
+
+                self.init = self.goals[np.random.randint(self.goals_len)]
+
+                if (self.init != self.goal).all(): break
+
+        else:
+
+            self.init = state
+        
+        self.pos = self.init.copy()
+
+        self.env = np.copy(self.env_mask)
+        self.env[self.goal[0], self.goal[1]] = 2
+                
+        return np.append(self.pos, self.goal)
         
     def step(self, action):
         """
