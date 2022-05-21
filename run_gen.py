@@ -19,7 +19,8 @@ agent = DQN(env.state_dim,
             step_size=1e-4,
             tau=0.001)
 
-num_episodes = 1000
+num_episodes = 100
+explore = 50
 
 returns = []
 
@@ -30,7 +31,7 @@ for ep in tqdm(range(num_episodes)):
 
     while True:
 
-        if ep < 50:
+        if ep < explore:
             # At first only explore.
 
             action = np.random.randint(env.action_dim)
@@ -97,7 +98,7 @@ state_buffer = []
 action_buffer = []
 value_buffer = []
 
-all_states = [np.append(s, g) for s in env.goals for g in env.visible_goals]
+all_states = np.array([np.append(s, g) for s in env.goals for g in env.visible_goals])
 all_values = agent.critic(all_states).numpy()
 
 for state, q_values in zip(all_states, all_values):
@@ -108,11 +109,14 @@ for state, q_values in zip(all_states, all_values):
         action_buffer.append(action)
         value_buffer.append(q_values[action])
 
-sup_agent = Sup_Agent()
+sup_agent = Sup_Agent(batch_size=agent.batch_size, step_size=agent.step_size)
 sup_agent.create_buffer(state_buffer, action_buffer, value_buffer)
 sup_agent.critic = agent.make_critic(env.state_dim, env.action_dim, [40, 30])
 
 sup_agent.train()
+
+print(all_values)
+print(sup_agent.critic(all_states).numpy())
 
 # TEST EPISODES
 

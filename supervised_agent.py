@@ -4,20 +4,18 @@ from tqdm import tqdm
 
 class Sup_Agent:
 
-    def __init__(self, state_dim, action_dim, batch_size=64, step_size=1e-4):
+    def __init__(self, batch_size=64, step_size=1e-4):
 
-        self.state_dim = state_dim
-        self.action_dim = action_dim
         self.batch_size = batch_size
         self.step_size = step_size
 
         self.epochs = 10000
-        self.val_split = 0.8
+        self.val_split = 1
 
         # Used for validation checks
         self.best = 1e6
         # THIS SHOULD BE HIGHER
-        self.patience = 25
+        self.patience = 100
 
         # Step the optimiser used and its stepsize.
         self.optimizer_critic = tf.keras.optimizers.Adam(step_size)
@@ -58,9 +56,9 @@ class Sup_Agent:
                      
             Q_values = self.critic(old_states, training=True)
             Q_values_actions = tf.gather_nd(Q_values, tf.stack((tf.constant(np.arange(len(Q_values)), dtype=tf.int32), actions), -1))
-            targets_actions = tf.gather_nd(targets, tf.stack((tf.constant(np.arange(len(Q_values)), dtype=tf.int32), actions), -1))
+            # targets_actions = tf.gather_nd(targets, tf.stack((tf.constant(np.arange(len(Q_values)), dtype=tf.int32), actions), -1))
 
-            error = Q_values_actions - targets_actions
+            error = Q_values_actions - targets
 
             # Calculate loss
             loss = tf.math.reduce_mean(tf.math.square(error))
@@ -74,6 +72,8 @@ class Sup_Agent:
         Selects a batch from the buffer.
         Using a selected trajectory.
         """
+
+        # SHOULD I BE SAMPLING WITH REPLACEMENT
             
         # Index of the randomly chosen transitions   
         # index = np.arange(self.split_ind)[b * self.batch_size:(b+1) * self.batch_size]  
@@ -114,9 +114,14 @@ class Sup_Agent:
         """
 
         # We have a different index for values as we need the next one too.
-        batch = [self.buffer['obs'][self.split_ind:], 
-                 self.buffer['action'][self.split_ind:],
-                 self.buffer['value'][self.split_ind:]]
+        # batch = [self.buffer['obs'][self.split_ind:], 
+        #          self.buffer['action'][self.split_ind:],
+        #          self.buffer['value'][self.split_ind:]]
+
+        # For early stopping not using validation set
+        batch = [self.buffer['obs'], 
+                 self.buffer['action'],
+                 self.buffer['value']]
 
         # Make tensors for speed.
         batch = [tf.convert_to_tensor(item) for item in batch]
@@ -130,10 +135,10 @@ class Sup_Agent:
                 
         Q_values = self.critic(old_states, training=True)
         Q_values_actions = tf.gather_nd(Q_values, tf.stack((tf.constant(np.arange(len(Q_values)), dtype=tf.int32), actions), -1))
-        targets_actions = tf.gather_nd(targets, tf.stack((tf.constant(np.arange(len(Q_values)), dtype=tf.int32), actions), -1))
+        # targets_actions = tf.gather_nd(targets, tf.stack((tf.constant(np.arange(len(Q_values)), dtype=tf.int32), actions), -1))
 
         # Calculate loss
-        loss = tf.math.reduce_mean(tf.math.square(Q_values_actions - targets_actions))
+        loss = tf.math.reduce_mean(tf.math.square(Q_values_actions - targets))
 
         if loss < self.best:
 
@@ -163,6 +168,4 @@ class Sup_Agent:
         Has epsilon greedy exploration.
         """
 
-        values = self.critic(state.reshape(1, -1))[0].numpy()
-
-        return np.random.choice(np.arange(self.action_dim)[values == values.max()])
+        return self.critic(state.reshape(1, -1))[0].numpy().argmax()
