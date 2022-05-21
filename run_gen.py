@@ -1,14 +1,14 @@
 from GridWorld import GridEnv
 import numpy as np
-import sys
 from DQN import DQN
 from tqdm import tqdm
-# import tensorflow as tf
 from supervised_agent import Sup_Agent 
+import matplotlib.pyplot as plt
+import csv
 
 # TRAIN THE RL AGENT FIRST
 
-env = GridEnv(8, 8, num_hidden=5)
+env = GridEnv(15, 15, num_hidden=20)
 agent = DQN(env.state_dim, 
             env.action_dim,
             critic_arch=[40, 30], 
@@ -19,7 +19,7 @@ agent = DQN(env.state_dim,
             step_size=1e-4,
             tau=0.001)
 
-num_episodes = 1000
+num_episodes = 10000
 explore = 100
 
 returns = []
@@ -54,11 +54,17 @@ for ep in tqdm(range(num_episodes)):
 
         if done: break
 
-    if ret != env.H - np.abs(env.init - env.goal).sum():
+    # if ret != env.H - np.abs(env.init - env.goal).sum():
 
-        print('Best Return/Return: {}/{}'.format(ret, env.H - np.abs(env.init - env.goal).sum()))
+    #     print('Best Return/Return: {}/{}'.format(ret, env.H - np.abs(env.init - env.goal).sum()))
 
     returns.append(ret)
+
+plt.plot(returns)
+plt.xlabel('Episode')
+plt.ylabel('Episode Return')
+plt.title('DQN agent learning curve')
+plt.savefig('returns_plot.svg')
 
 # DISTILL INTO NEW NETWORK USING SUPERVISED LEARNING
 
@@ -80,14 +86,11 @@ for state, q_values in zip(all_states, all_values):
         action_buffer.append(action)
         value_buffer.append(q_values[action])
 
-sup_agent = Sup_Agent(batch_size=agent.batch_size, step_size=agent.step_size)
+sup_agent = Sup_Agent(env.action_dim, batch_size=agent.batch_size, step_size=agent.step_size)
 sup_agent.create_buffer(state_buffer, action_buffer, value_buffer)
 sup_agent.critic = agent.make_critic(env.state_dim, env.action_dim, [40, 30])
 
 sup_agent.train()
-
-print(all_values)
-print(sup_agent.critic(all_states).numpy())
 
 # TEST EPISODES
 
@@ -108,32 +111,43 @@ for goal in env.hidden_goals:
             action = agent.choose_action(state, exp=False)
             new_state, reward, done, _ = env.step(action)
             ret_DQN += reward
+            state = new_state
 
             if done: break
 
         # Play Supervised agent
-        state = env.reset_test(goal, start[2:])
+        state = env.reset_test(goal, start[:2])
         ret_sup = 0
 
         while True:
 
-            action = sup_agent.choose_action(state)
+            action = sup_agent.choose_action(state, exp=False)
             new_state, reward, done, _ = env.step(action)
             ret_sup += reward
+            state = new_state
 
             if done: break
+
+        results = []
         
         if ret_sup > ret_DQN:
 
+            results.append('Supervised agent did better')
             print('Supervised agent did better')
 
         elif ret_sup == ret_DQN:
 
+            results.append('There was no difference')
             print('There was no difference')
 
         else:
 
-            print('DQN agebt did better')
+            results.append('DQN agent did better')
+            print('DQN agent did better')
 
         print()
+
+np.savetxt('results.csv', results, delimiter=',')
+
+
 

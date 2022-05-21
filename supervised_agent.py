@@ -4,10 +4,12 @@ from tqdm import tqdm
 
 class Sup_Agent:
 
-    def __init__(self, batch_size=64, step_size=1e-4):
+    def __init__(self, action_dim, batch_size=64, step_size=1e-4, epsilon=0.05):
 
         self.batch_size = batch_size
         self.step_size = step_size
+        self.epsilon = epsilon
+        self.action_dim = action_dim
 
         self.epochs = 10000
         self.val_split = 1
@@ -56,7 +58,6 @@ class Sup_Agent:
                      
             Q_values = self.critic(old_states, training=True)
             Q_values_actions = tf.gather_nd(Q_values, tf.stack((tf.constant(np.arange(len(Q_values)), dtype=tf.int32), actions), -1))
-            # targets_actions = tf.gather_nd(targets, tf.stack((tf.constant(np.arange(len(Q_values)), dtype=tf.int32), actions), -1))
 
             error = Q_values_actions - targets
 
@@ -67,17 +68,18 @@ class Sup_Agent:
         gradient = g.gradient(loss, self.critic.trainable_variables)
         self.optimizer_critic.apply_gradients(zip(gradient, self.critic.trainable_variables))
 
-    def get_batch(self):
+    def get_batch(self, shuffled_indexes, b):
         """
         Selects a batch from the buffer.
         Using a selected trajectory.
         """
 
         # SHOULD I BE SAMPLING WITH REPLACEMENT
+        # DO I WORK MY WAY THROUGH THE ENTIRE DATASET EACH EPOCH?
             
-        # Index of the randomly chosen transitions   
-        # index = np.arange(self.split_ind)[b * self.batch_size:(b+1) * self.batch_size]  
-        index = np.random.choice(np.arange(self.split_ind), self.batch_size)   
+        # Index of the randomly chosen transitions
+        index = shuffled_indexes[b * self.batch_size:(b+1) * self.batch_size]  
+        # index = np.random.choice(np.arange(self.split_ind), self.batch_size)   
 
         # We have a different index for values as we need the next one too.
         batch = [self.buffer['obs'][index], 
@@ -98,10 +100,13 @@ class Sup_Agent:
         """
 
         for _ in tqdm(range(self.epochs)):
-            for _ in range(self.num_batches):
+
+            shuffled_indexes = np.random.choice(np.arange(self.split_ind), self.split_ind, replace=False)
+
+            for b in range(self.num_batches):
 
                 batch = self.get_batch()
-                self.update_critic(batch)
+                self.update_critic(batch, shuffled_indexes, b)
 
             if self.check_val():
                 break
@@ -135,7 +140,6 @@ class Sup_Agent:
                 
         Q_values = self.critic(old_states, training=True)
         Q_values_actions = tf.gather_nd(Q_values, tf.stack((tf.constant(np.arange(len(Q_values)), dtype=tf.int32), actions), -1))
-        # targets_actions = tf.gather_nd(targets, tf.stack((tf.constant(np.arange(len(Q_values)), dtype=tf.int32), actions), -1))
 
         # Calculate loss
         loss = tf.math.reduce_mean(tf.math.square(Q_values_actions - targets))
@@ -162,10 +166,16 @@ class Sup_Agent:
 
             return False
 
-    def choose_action(self, state):
+    def choose_action(self, state, exp=True):
         """
         Given a state returns a chosen action given by policy.
         Has epsilon greedy exploration.
         """
 
-        return self.critic(state.reshape(1, -1))[0].numpy().argmax()
+        if (np.random.rand() < self.epsilon) & exp:
+
+            return np.random.randint(self.action_dim)
+
+        else:
+
+            return self.critic(state.reshape(1, -1))[0].numpy().argmax()
