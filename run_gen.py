@@ -135,23 +135,34 @@ for goal in env.hidden_goals:
             state = new_state
 
             if done: break
+
+        sup_better = 0
+        dqn_better = 0
+        same = 0
         
         if ret_sup > ret_DQN:
 
             results.append('Supervised agent did better')
             print('Supervised agent did better')
+            sup_better += 1
 
         elif ret_sup == ret_DQN:
 
             results.append('There was no difference')
             print('There was no difference')
+            same += 1
 
         else:
 
             results.append('DQN agent did better')
             print('DQN agent did better')
+            dqn_better += 1
 
         print()
+
+results.append('Supervised did better {} times'.format(sup_better))
+results.append('DQN did better {} times'.format(dqn_better))
+results.append('They did the same {} times'.format(same))
 
 np.savetxt('results.txt', results, delimiter=',', fmt="%s")
 
