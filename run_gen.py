@@ -95,6 +95,9 @@ sup_agent.train()
 # TEST EPISODES
 
 results = []
+sup_better = 0
+dqn_better = 0
+same = 0
 
 # Try each new goal
 for goal in env.hidden_goals:
@@ -135,10 +138,6 @@ for goal in env.hidden_goals:
             state = new_state
 
             if done: break
-
-        sup_better = 0
-        dqn_better = 0
-        same = 0
         
         if ret_sup > ret_DQN:
 
