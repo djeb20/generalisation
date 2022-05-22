@@ -4,11 +4,10 @@ from DQN import DQN
 from tqdm import tqdm
 from supervised_agent import Sup_Agent 
 import matplotlib.pyplot as plt
-import csv
 
 # TRAIN THE RL AGENT FIRST
 
-env = GridEnv(15, 15, num_hidden=20)
+env = GridEnv(20, 20, num_hidden=100)
 agent = DQN(env.state_dim, 
             env.action_dim,
             critic_arch=[40, 30], 
@@ -72,7 +71,6 @@ plt.savefig('errors_plot.svg')
 
 # Do I bother with the monitoring the validation set?
 
-
 state_buffer = []
 action_buffer = []
 value_buffer = []
@@ -96,21 +94,27 @@ sup_agent.train()
 
 # TEST EPISODES
 
+results = []
+
 # Try each new goal
 for goal in env.hidden_goals:
 
     # Try a bunch of start states
-    for _ in range(5):
+    for _ in range(20):
+
+        seed = np.random.randint(100000)
 
         state = env.reset_test(goal)
         start = state.copy()
 
         ret_DQN = 0
 
+        np.random.seed(seed)
+
         # Play DQN agent
         while True:
 
-            action = agent.choose_action(state, exp=False)
+            action = agent.choose_action(state, exp=True)
             new_state, reward, done, _ = env.step(action)
             ret_DQN += reward
             state = new_state
@@ -121,16 +125,16 @@ for goal in env.hidden_goals:
         state = env.reset_test(goal, start[:2])
         ret_sup = 0
 
+        np.random.seed(seed)
+
         while True:
 
-            action = sup_agent.choose_action(state, exp=False)
+            action = sup_agent.choose_action(state, exp=True)
             new_state, reward, done, _ = env.step(action)
             ret_sup += reward
             state = new_state
 
             if done: break
-
-        results = []
         
         if ret_sup > ret_DQN:
 
@@ -149,7 +153,7 @@ for goal in env.hidden_goals:
 
         print()
 
-np.savetxt('results.csv', results, delimiter=',')
+np.savetxt('results.txt', results, delimiter=',', fmt="%s")
 
 
 
